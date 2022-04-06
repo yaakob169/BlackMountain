@@ -101,18 +101,18 @@ function installQuestions() {
 
 	# Generate random number within private ports range
 	RANDOM_PORT=$(shuf -i49152-65535 -n1)
-	until [[ ${SERVER_PORT} =~ ^[0-9]+$ ]] && [ "${SERVER_PORT}" -ge 1 ] && [ "${SERVER_PORT}" -le 65535 ]; do
-		read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" SERVER_PORT
+	until [[ ${arrayVariables[5]} =~ ^[0-9]+$ ]] && [ "${arrayVariables[5]}" -ge 1 ] && [ "${arrayVariables[5]}" -le 65535 ]; do
+		read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" arrayVariables[5]
 	done
 
 	# Adguard DNS by default
-	until [[ ${CLIENT_DNS_1} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-		read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 CLIENT_DNS_1
+	until [[ ${arrayVariables[6]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+		read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 arrayVariables[6]
 	done
-	until [[ ${CLIENT_DNS_2} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-		read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 CLIENT_DNS_2
-		if [[ ${CLIENT_DNS_2} == "" ]]; then
-			CLIENT_DNS_2="${CLIENT_DNS_1}"
+	until [[ ${arrayVariables[7]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+		read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 arrayVariables[7]
+		if [[ ${arrayVariables[7]} == "" ]]; then
+			arrayVariables[7]="${arrayVariables[6]}"
 		fi
 	done
 
@@ -127,7 +127,7 @@ function installWireGuard() {
 	installQuestions
 
 	# Install WireGuard tools and module
-	if [[ ${OS} == 'ubuntu' ]] || [[ ${OS} == 'debian' && ${VERSION_ID} -gt 10 ]]; then
+	if [[ ${OS} == 'ubuntu' ]] || [[ ${OS} == 'debian' && ${VERSION_ID} -gt 10 ]] || [[ ${OS} == 'kali' ]]; then
 		apt-get update
 		apt-get install -y wireguard iptables resolvconf qrencode
 	elif [[ ${OS} == 'debian' ]]; then
@@ -175,23 +175,23 @@ SERVER_PUB_NIC=${SERVER_PUB_NIC}
 SERVER_WG_NIC=${SERVER_WG_NIC}
 SERVER_WG_IPV4=${SERVER_WG_IPV4}
 SERVER_WG_IPV6=${SERVER_WG_IPV6}
-SERVER_PORT=${SERVER_PORT}
+arrayVariables[5]=${arrayVariables[5]}
 SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
 SERVER_PUB_KEY=${SERVER_PUB_KEY}
-CLIENT_DNS_1=${CLIENT_DNS_1}
-CLIENT_DNS_2=${CLIENT_DNS_2}" >/etc/wireguard/params
+arrayVariables[6]=${arrayVariables[6]}
+arrayVariables[7]=${arrayVariables[7]}" >/etc/wireguard/params
 
 	# Add server interface
 	echo "[Interface]
 Address = ${SERVER_WG_IPV4}/24,${SERVER_WG_IPV6}/64
-ListenPort = ${SERVER_PORT}
+ListenPort = ${arrayVariables[5]}
 PrivateKey = ${SERVER_PRIV_KEY}" >"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
 	if pgrep firewalld; then
 		FIREWALLD_IPV4_ADDRESS=$(echo "${SERVER_WG_IPV4}" | cut -d"." -f1-3)".0"
 		FIREWALLD_IPV6_ADDRESS=$(echo "${SERVER_WG_IPV6}" | sed 's/:[^:]*$/:0/')
-		echo "PostUp = firewall-cmd --add-port ${SERVER_PORT}/udp && firewall-cmd --add-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --add-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'
-PostDown = firewall-cmd --remove-port ${SERVER_PORT}/udp && firewall-cmd --remove-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --remove-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
+		echo "PostUp = firewall-cmd --add-port ${arrayVariables[5]}/udp && firewall-cmd --add-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --add-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'
+PostDown = firewall-cmd --remove-port ${arrayVariables[5]}/udp && firewall-cmd --remove-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --remove-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 	else
 		echo "PostUp = iptables -A FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT; iptables -A FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE; ip6tables -A FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; ip6tables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE
 PostDown = iptables -D FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT; iptables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE; ip6tables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
@@ -222,7 +222,7 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 }
 
 function newClient() {
-	ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
+	ENDPOINT="${SERVER_PUB_IP}:${arrayVariables[5]}"
 
 	echo ""
 	echo "Tell me a name for the client."
@@ -304,7 +304,7 @@ function newClient() {
 	echo "[Interface]
 PrivateKey = ${CLIENT_PRIV_KEY}
 Address = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128
-DNS = ${CLIENT_DNS_1},${CLIENT_DNS_2}
+DNS = ${arrayVariables[6]},${arrayVariables[7]}
 
 [Peer]
 PublicKey = ${SERVER_PUB_KEY}
@@ -421,6 +421,90 @@ function uninstallWg() {
 		echo "Removal aborted!"
 	fi
 }
+
+function addInterface() {
+	echo "W"
+	echo "T"
+	echo ""
+	echo "I "
+	echo "Y."
+	echo ""
+
+    for Num in {0..254}; do
+		DOT_EXISTS=$(ls /etc/wireguard/ | grep -c params${Num})
+		if [[ ${DOT_EXISTS} == '0' ]]; then
+			
+			declare -a arrayVariables
+
+
+            # Detect public IPv4 or IPv6 address and pre-fill for the user
+            SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+            if [[ -z ${SERVER_PUB_IP} ]]; then
+                # Detect public IPv6 address
+                SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+            fi
+            read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" arrayVariables[0]
+
+            # Detect public interface and pre-fill for the user
+            SERVER_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+            
+			until [[ $arrayVariables[1] =~ ^[a-zA-Z0-9_]+$ ]]; do
+                read -rp "Public interface: " -e -i "${SERVER_NIC}" arrayVariables[1]
+            done
+
+            until [[  $arrayVariables[2]=~ ^[a-zA-Z0-9_]+$ && ${#arrayVariables[2]} -lt 16 ]]; do
+                read -rp "WireGuard interface name: " -e -i wg$Num arrayVariables[2]
+            done
+
+            until [[ ${arrayVariables[3]} =~ ^([0-9]{1,3}\.){3} ]]; do
+                read -rp "Server's WireGuard IPv4: " -e -i 10.66.$Num.1 arrayVariables[3]
+            done
+
+            until [[ ${arrayVariables[4]} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
+                read -rp "Server's WireGuard IPv6: " -e -i fd42:42:42::1 arrayVariables[4]
+            done
+
+            # Generate random number within private ports range
+            RANDOM_PORT=$(shuf -i49152-65535 -n1)
+            until [[ ${arrayVariables[5]} =~ ^[0-9]+$ ]] && [ "${arrayVariables[5]}" -ge 1 ] && [ "${arrayVariables[5]}" -le 65535 ]; do
+                read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" arrayVariables[5]
+            done
+
+            # Adguard DNS by default
+            until [[ ${arrayVariables[6]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+                read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 arrayVariables[6]
+            done
+            until [[ ${arrayVariables[7]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+                read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 arrayVariables[7]
+                if [[ ${arrayVariables[7]} == "" ]]; then
+                    arrayVariables[7]="${arrayVariables[6]}"
+                fi
+            done
+
+            echo ""
+            echo "Okay, that was all I needed. We are ready to setup your WireGuard server now."
+            echo "You will be able to generate a client at the end of the installation."
+            read -n1 -r -p "Press any key to continue..."
+			
+			declare SERVER_PRIV_KEY_$Num=$(wg genkey)
+			declare SERVER_PUB_KEY_$Num=$(echo "${SERVER_PRIV_KEY}" | wg pubkey)
+			# Save WireGuard settings
+			echo "SERVER_PUB_IP=${SERVER_PUB_IP}
+SERVER_PUB_NIC=${SERVER_PUB_NIC}
+SERVER_WG_NIC=${SERVER_WG_NIC}
+SERVER_WG_IPV4=${SERVER_WG_IPV4}
+SERVER_WG_IPV6=${SERVER_WG_IPV6}
+SERVER_PORT=${SERVER_PORT}
+SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
+SERVER_PUB_KEY=${SERVER_PUB_KEY}
+CLIENT_DNS_1=${CLIENT_DNS_1}
+CLIENT_DNS_2=${CLIENT_DNS_2}" >/etc/wireguard/params
+			
+        fi
+	done
+}
+
+
 
 function manageMenu() {
 	echo "Welcome to WireGuard-install!"
