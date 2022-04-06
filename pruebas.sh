@@ -437,65 +437,65 @@ function addInterface() {
 			declare -a arrayVariables
 
 
-            # Detect public IPv4 or IPv6 address and pre-fill for the user
-            SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
-            if [[ -z ${SERVER_PUB_IP} ]]; then
-                # Detect public IPv6 address
-                SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
-            fi
-            read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" arrayVariables[0]
+            		# Detect public IPv4 or IPv6 address and pre-fill for the user
+			SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+			if [[ -z ${SERVER_PUB_IP} ]]; then
+				# Detect public IPv6 address
+				SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+		 	fi
+			read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" arrayVariables[0]
 
-            # Detect public interface and pre-fill for the user
-            SERVER_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
-            
+			# Detect public interface and pre-fill for the user
+			SERVER_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+
 			until [[ $arrayVariables[1] =~ ^[a-zA-Z0-9_]+$ ]]; do
-                read -rp "Public interface: " -e -i "${SERVER_NIC}" arrayVariables[1]
-            done
+                		read -rp "Public interface: " -e -i "${SERVER_NIC}" arrayVariables[1]
+            		done
 
-            until [[  $arrayVariables[2]=~ ^[a-zA-Z0-9_]+$ && ${#arrayVariables[2]} -lt 16 ]]; do
-                read -rp "WireGuard interface name: " -e -i wg$Num arrayVariables[2]
-            done
+            		until [[  $arrayVariables[2]=~ ^[a-zA-Z0-9_]+$ && ${#arrayVariables[2]} -lt 16 ]]; do
+                		read -rp "WireGuard interface name: " -e -i wg$Num arrayVariables[2]
+            		done
 
-            until [[ ${arrayVariables[3]} =~ ^([0-9]{1,3}\.){3} ]]; do
-                read -rp "Server's WireGuard IPv4: " -e -i 10.66.$Num.1 arrayVariables[3]
-            done
+	            	until [[ ${arrayVariables[3]} =~ ^([0-9]{1,3}\.){3} ]]; do
+                		read -rp "Server's WireGuard IPv4: " -e -i 10.66.$Num.1 arrayVariables[3]
+            		done
 
-            until [[ ${arrayVariables[4]} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
-                read -rp "Server's WireGuard IPv6: " -e -i fd42:42:42::1 arrayVariables[4]
-            done
+			until [[ ${arrayVariables[4]} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
+				read -rp "Server's WireGuard IPv6: " -e -i fd42:42:42::1 arrayVariables[4]
+			done
 
-            # Generate random number within private ports range
-            RANDOM_PORT=$(shuf -i49152-65535 -n1)
-            until [[ ${arrayVariables[5]} =~ ^[0-9]+$ ]] && [ "${arrayVariables[5]}" -ge 1 ] && [ "${arrayVariables[5]}" -le 65535 ]; do
-                read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" arrayVariables[5]
-            done
+		 	# Generate random number within private ports range
+		 	RANDOM_PORT=$(shuf -i49152-65535 -n1)
+			until [[ ${arrayVariables[5]} =~ ^[0-9]+$ ]] && [ "${arrayVariables[5]}" -ge 1 ] && [ "${arrayVariables[5]}" -le 65535 ]; do
+				read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" arrayVariables[5]
+			done
 
-            # Adguard DNS by default
-            until [[ ${arrayVariables[6]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-                read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 arrayVariables[6]
-            done
-            until [[ ${arrayVariables[7]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-                read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 arrayVariables[7]
-                if [[ ${arrayVariables[7]} == "" ]]; then
-                    arrayVariables[7]="${arrayVariables[6]}"
-                fi
-            done
+			# Adguard DNS by default
+			until [[ ${arrayVariables[6]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+				read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 arrayVariables[6]
+			done
+			until [[ ${arrayVariables[7]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+				read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 arrayVariables[7]
+			if [[ ${arrayVariables[7]} == "" ]]; then
+				arrayVariables[7]="${arrayVariables[6]}"
+			fi
+			    done
 
-            echo ""
-            echo "Okay, that was all I needed. We are ready to setup your WireGuard server now."
-            echo "You will be able to generate a client at the end of the installation."
-            read -n1 -r -p "Press any key to continue..."
+			echo ""
+		 	echo "Okay, that was all I needed. We are ready to setup your WireGuard server now."
+			echo "You will be able to generate a client at the end of the installation."
+			read -n1 -r -p "Press any key to continue..."
 			
-			declare SERVER_PRIV_KEY_$Num=$(wg genkey)
-			declare SERVER_PUB_KEY_$Num=$(echo "${SERVER_PRIV_KEY}" | wg pubkey)
+			arrayVariables[8]=$(wg genkey)
+			arrayVariables[9]=$(echo "${arrayVariables[8]}" | wg pubkey)
 			# Save WireGuard settings
-			echo "SERVER_PUB_IP=${SERVER_PUB_IP}
-SERVER_PUB_NIC=${SERVER_PUB_NIC}
-SERVER_WG_NIC=${SERVER_WG_NIC}
-SERVER_WG_IPV4=${SERVER_WG_IPV4}
-SERVER_WG_IPV6=${SERVER_WG_IPV6}
-SERVER_PORT=${SERVER_PORT}
-SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
+			echo "SERVER_PUB_IP=${arrayVariables[0]}
+SERVER_PUB_NIC=${arrayVariables[1]}
+SERVER_WG_NIC=${arrayVariables[2]}
+SERVER_WG_IPV4=${arrayVariables[3]}
+SERVER_WG_IPV6=${arrayVariables[4]}
+SERVER_PORT=${arrayVariables[5]}
+SERVER_PRIV_KEY=${arrayVariables[8]}
 SERVER_PUB_KEY=${SERVER_PUB_KEY}
 CLIENT_DNS_1=${CLIENT_DNS_1}
 CLIENT_DNS_2=${CLIENT_DNS_2}" >/etc/wireguard/params
