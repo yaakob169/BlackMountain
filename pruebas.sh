@@ -222,129 +222,152 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 }
 
 function newClient() {
+    
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+    	echo "What inteface do you want?"s
+	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    read -rp InterfaceChosed
 
-	echo "What inteface do you want?"s
-	sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
-	read -rp InterfaceChosed
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
-	INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
 
-	if [[ ${CLIENT_EXISTS} == '1' ]]; then
+    done
+    
+    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
+	ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
+
+	echo ""
+	echo "Tell me a name for the client."
+	echo "The name must consist of alphanumeric character. It may also include an underscore or a dash and can't exceed 15 chars."
+
+	until [[ ${CLIENT_NAME} =~ ^[a-zA-Z0-9_-]+$ && ${CLIENT_EXISTS} == '0' && ${#CLIENT_NAME} -lt 16 ]]; do
+		read -rp "Client name: " -e CLIENT_NAME
+		CLIENT_EXISTS=$(grep -c -E "^### Client ${CLIENT_NAME}\$" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+
+		if [[ ${CLIENT_EXISTS} == '1' ]]; then
+			echo ""
+			echo "A client with the specified name was already created, please choose another name."
+			echo ""
+		fi
+	done
+
+	for DOT_IP in {2..254}; do
+		DOT_EXISTS=$(grep -c "${SERVER_WG_IPV4::-1}${DOT_IP}" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+		if [[ ${DOT_EXISTS} == '0' ]]; then
+			break
+		fi
+	done
+
+	if [[ ${DOT_EXISTS} == '1' ]]; then
 		echo ""
-		echo "A client with the specified name was already created, please choose another name."
-		echo ""
+		echo "The subnet configured supports only 253 clients."
+		exit 1
 	fi
 
+	BASE_IP=$(echo "$SERVER_WG_IPV4" | awk -F '.' '{ print $1"."$2"."$3 }')
+	until [[ ${IPV4_EXISTS} == '0' ]]; do
+		read -rp "Client's WireGuard IPv4: ${BASE_IP}." -e -i "${DOT_IP}" DOT_IP
+		CLIENT_WG_IPV4="${BASE_IP}.${DOT_IP}"
+		IPV4_EXISTS=$(grep -c "$CLIENT_WG_IPV4/24" "/etc/wireguard/${SERVER_WG_NIC}.conf")
 
-
-		ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
-
-		echo ""
-		echo "Tell me a name for the client."
-		echo "The name must consist of alphanumeric character. It may also include an underscore or a dash and can't exceed 15 chars."
-
-		until [[ ${CLIENT_NAME} =~ ^[a-zA-Z0-9_-]+$ && ${CLIENT_EXISTS} == '0' && ${#CLIENT_NAME} -lt 16 ]]; do
-			read -rp "Client name: " -e CLIENT_NAME
-			CLIENT_EXISTS=$(grep -c -E "^### Client ${CLIENT_NAME}\$" "/etc/wireguard/${SERVER_WG_NIC}.conf")
-
-			if [[ ${CLIENT_EXISTS} == '1' ]]; then
-				echo ""
-				echo "A client with the specified name was already created, please choose another name."
-				echo ""
-			fi
-		done
-
-		for DOT_IP in {2..254}; do
-			DOT_EXISTS=$(grep -c "${SERVER_WG_IPV4::-1}${DOT_IP}" "/etc/wireguard/${SERVER_WG_NIC}.conf")
-			if [[ ${DOT_EXISTS} == '0' ]]; then
-				break
-			fi
-		done
-
-		if [[ ${DOT_EXISTS} == '1' ]]; then
+		if [[ ${IPV4_EXISTS} == '1' ]]; then
 			echo ""
-			echo "The subnet configured supports only 253 clients."
-			exit 1
+			echo "A client with the specified IPv4 was already created, please choose another IPv4."
+			echo ""
 		fi
+	done
 
-		BASE_IP=$(echo "$SERVER_WG_IPV4" | awk -F '.' '{ print $1"."$2"."$3 }')
-		until [[ ${IPV4_EXISTS} == '0' ]]; do
-			read -rp "Client's WireGuard IPv4: ${BASE_IP}." -e -i "${DOT_IP}" DOT_IP
-			CLIENT_WG_IPV4="${BASE_IP}.${DOT_IP}"
-			IPV4_EXISTS=$(grep -c "$CLIENT_WG_IPV4/24" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+	BASE_IP=$(echo "$SERVER_WG_IPV6" | awk -F '::' '{ print $1 }')
+	until [[ ${IPV6_EXISTS} == '0' ]]; do
+		read -rp "Client's WireGuard IPv6: ${BASE_IP}::" -e -i "${DOT_IP}" DOT_IP
+		CLIENT_WG_IPV6="${BASE_IP}::${DOT_IP}"
+		IPV6_EXISTS=$(grep -c "${CLIENT_WG_IPV6}/64" "/etc/wireguard/${SERVER_WG_NIC}.conf")
 
-			if [[ ${IPV4_EXISTS} == '1' ]]; then
-				echo ""
-				echo "A client with the specified IPv4 was already created, please choose another IPv4."
-				echo ""
-			fi
-		done
+		if [[ ${IPV6_EXISTS} == '1' ]]; then
+			echo ""
+			echo "A client with the specified IPv6 was already created, please choose another IPv6."
+			echo ""
+		fi
+	done
 
-		BASE_IP=$(echo "$SERVER_WG_IPV6" | awk -F '::' '{ print $1 }')
-		until [[ ${IPV6_EXISTS} == '0' ]]; do
-			read -rp "Client's WireGuard IPv6: ${BASE_IP}::" -e -i "${DOT_IP}" DOT_IP
-			CLIENT_WG_IPV6="${BASE_IP}::${DOT_IP}"
-			IPV6_EXISTS=$(grep -c "${CLIENT_WG_IPV6}/64" "/etc/wireguard/${SERVER_WG_NIC}.conf")
+	# Generate key pair for the client
+	CLIENT_PRIV_KEY=$(wg genkey)
+	CLIENT_PUB_KEY=$(echo "${CLIENT_PRIV_KEY}" | wg pubkey)
+	CLIENT_PRE_SHARED_KEY=$(wg genpsk)
 
-			if [[ ${IPV6_EXISTS} == '1' ]]; then
-				echo ""
-				echo "A client with the specified IPv6 was already created, please choose another IPv6."
-				echo ""
-			fi
-		done
-
-		# Generate key pair for the client
-		CLIENT_PRIV_KEY=$(wg genkey)
-		CLIENT_PUB_KEY=$(echo "${CLIENT_PRIV_KEY}" | wg pubkey)
-		CLIENT_PRE_SHARED_KEY=$(wg genpsk)
-
-		# Home directory of the user, where the client configuration will be written
-		if [ -e "/home/${CLIENT_NAME}" ]; then
-			# if $1 is a user name
-			HOME_DIR="/home/${CLIENT_NAME}"
-		elif [ "${SUDO_USER}" ]; then
-			# if not, use SUDO_USER
-			if [ "${SUDO_USER}" == "root" ]; then
-				# If running sudo as root
-				HOME_DIR="/root"
-			else
-				HOME_DIR="/home/${SUDO_USER}"
-			fi
-		else
-			# if not SUDO_USER, use /root
+	# Home directory of the user, where the client configuration will be written
+	if [ -e "/home/${CLIENT_NAME}" ]; then
+		# if $1 is a user name
+		HOME_DIR="/home/${CLIENT_NAME}"
+	elif [ "${SUDO_USER}" ]; then
+		# if not, use SUDO_USER
+		if [ "${SUDO_USER}" == "root" ]; then
+			# If running sudo as root
 			HOME_DIR="/root"
+		else
+			HOME_DIR="/home/${SUDO_USER}"
 		fi
+	else
+		# if not SUDO_USER, use /root
+		HOME_DIR="/root"
+	fi
 
-		# Create client file and add the server as a peer
-		echo "[Interface]
-	PrivateKey = ${CLIENT_PRIV_KEY}
-	Address = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128
-	DNS = ${CLIENT_DNS_1},${CLIENT_DNS_2}
+	# Create client file and add the server as a peer
+	echo "[Interface]
+PrivateKey = ${CLIENT_PRIV_KEY}
+Address = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128
+DNS = ${CLIENT_DNS_1},${CLIENT_DNS_2}
 
-	[Peer]
-	PublicKey = ${SERVER_PUB_KEY}
-	PresharedKey = ${CLIENT_PRE_SHARED_KEY}
-	Endpoint = ${ENDPOINT}
-	AllowedIPs = 0.0.0.0/0,::/0" >>"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+[Peer]
+PublicKey = ${SERVER_PUB_KEY}
+PresharedKey = ${CLIENT_PRE_SHARED_KEY}
+Endpoint = ${ENDPOINT}
+AllowedIPs = 0.0.0.0/0,::/0" >>"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
 
-		# Add the client as a peer to the server
-		echo -e "\n### Client ${CLIENT_NAME}
-	[Peer]
-	PublicKey = ${CLIENT_PUB_KEY}
-	PresharedKey = ${CLIENT_PRE_SHARED_KEY}
-	AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
+	# Add the client as a peer to the server
+	echo -e "\n### Client ${CLIENT_NAME}
+[Peer]
+PublicKey = ${CLIENT_PUB_KEY}
+PresharedKey = ${CLIENT_PRE_SHARED_KEY}
+AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
-		wg syncconf "${SERVER_WG_NIC}" <(wg-quick strip "${SERVER_WG_NIC}")
+	wg syncconf "${SERVER_WG_NIC}" <(wg-quick strip "${SERVER_WG_NIC}")
 
-		echo -e "\nHere is your client config file as a QR Code:"
+	echo -e "\nHere is your client config file as a QR Code:"
 
-		qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+	qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
 
-		echo "It is also available in ${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+	echo "It is also available in ${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
 
 }
 
 function revokeClient() {
+    
+    until [[     == '1' ]]; do
+    	echo "What inteface do you want?"s
+	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    read -rp InterfaceChosed
+
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
+
+    done
+
+    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
 	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
 	if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
 		echo ""
@@ -377,12 +400,30 @@ function revokeClient() {
 }
 
 function showUsers(){
-	lineas=$(sudo grep -E "### Client" /etc/wireguard/wg0.conf | wc -l)
+    until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+    	echo "What inteface do you want?"s
+	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    read -rp InterfaceChosed
+
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
+
+    done
+    
+    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
+	lineas=$(sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | wc -l)
 	echo " "
 	echo " "
 	echo "Hi han $lineas usuaris actius al sistema:"
 	echo " "
-	sudo grep -E "### Client" /etc/wireguard/wg0.conf | cut -f3 -d" "
+	sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | cut -f3 -d" "
 }
 
 function uninstallWg() {
@@ -390,9 +431,13 @@ function uninstallWg() {
 	read -rp "Do you really want to remove WireGuard? [y/n]: " -e -i n REMOVE
 	if [[ $REMOVE == 'y' ]]; then
 		checkOS
-
-		systemctl stop "wg-quick@${SERVER_WG_NIC}"
-		systemctl disable "wg-quick@${SERVER_WG_NIC}"
+        
+        NumInt=$(sudo ls /etc/wireguard/ | grep -c params)
+		for Num in {0..$NumInt}; do
+            source /etc/params$Num
+            systemctl stop "wg-quick@${SERVER_WG_NIC}"
+		    systemctl disable "wg-quick@${SERVER_WG_NIC}"
+        done
 
 		if [[ ${OS} == 'ubuntu' ]]; then
 			apt-get autoremove --purge -y wireguard qrencode
@@ -422,16 +467,21 @@ function uninstallWg() {
 		sysctl --system
 
 		# Check if WireGuard is running
-		systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
-		WG_RUNNING=$?
+        for Num in {0..$NumInt}; do
+            source /etc/params$Num
+		    systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
+		    WG_RUNNING=$?
 
-		if [[ ${WG_RUNNING} -eq 0 ]]; then
-			echo "WireGuard failed to uninstall properly."
-			exit 1
-		else
-			echo "WireGuard uninstalled successfully."
-			exit 0
-		fi
+            if [[ ${WG_RUNNING} -eq 0 ]]; then
+                echo "WireGuard failed to uninstall properly."
+                exit 1
+            else
+                echo "WireGuard uninstalled successfully."
+                if [$Num==$NumInt]; then
+                    exit 0
+                fi
+            fi
+        done
 	else
 		echo ""
 		echo "Removal aborted!"
@@ -532,6 +582,8 @@ PostDown = firewall-cmd --remove-port ${arrayVariables[5]}/udp && firewall-cmd -
 				echo "PostUp = iptables -A FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -j ACCEPT; iptables -A FORWARD -i ${arrayVariables[2]} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE; ip6tables -A FORWARD -i ${arrayVariables[2]} -j ACCEPT; ip6tables -t nat -A POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE
 PostDown = iptables -D FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -j ACCEPT; iptables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE; ip6tables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE" >>"/etc/wireguard/${arrayVariables[2]}.conf"
 			fi
+
+            echo "### /etc/wireguard/params$Num" >>"/etc/wireguard/${arrayVariables[2]}.conf"
 
 			echo "net.ipv4.ip_forward = 1
 			net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
