@@ -197,6 +197,8 @@ PostDown = firewall-cmd --remove-port ${SERVER_PORT}/udp && firewall-cmd --remov
 PostDown = iptables -D FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT; iptables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE; ip6tables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 	fi
 
+	echo "###/etc/wireguard/params0" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
+
 	# Enable routing on the server
 	echo "net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
@@ -222,11 +224,14 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 }
 
 function newClient() {
-    
+
 	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
-    	echo "What inteface do you want?"s
-	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
-	    read -rp InterfaceChosed
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    echo ""
+		read -p "What interface do you want? " InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -238,7 +243,7 @@ function newClient() {
 
     done
     
-    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
     source $ParamsOfInt
 
 	ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
@@ -349,11 +354,14 @@ AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SER
 }
 
 function revokeClient() {
-    
-    until [[     == '1' ]]; do
-    	echo "What inteface do you want?"s
-	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
-	    read -rp InterfaceChosed
+
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    echo ""
+		read -p "What interface do you want? " InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -364,8 +372,8 @@ function revokeClient() {
     	fi
 
     done
-
-    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
     source $ParamsOfInt
 
 	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
@@ -400,10 +408,14 @@ function revokeClient() {
 }
 
 function showUsers(){
-    until [[ ${INTERFACE_EXISTS} == '1' ]]; do
-    	echo "What inteface do you want?"s
-	    sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
-	    read -rp InterfaceChosed
+
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	    echo ""
+		read -p "What interface do you want? " InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -415,7 +427,7 @@ function showUsers(){
 
     done
     
-    ParamsOfInt=$(grep -E "### /etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
     source $ParamsOfInt
 
 	lineas=$(sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | wc -l)
@@ -433,8 +445,9 @@ function uninstallWg() {
 		checkOS
         
         NumInt=$(sudo ls /etc/wireguard/ | grep -c params)
-		for Num in {0..$NumInt}; do
-            source /etc/params$Num
+		for (( Num=0; Num<$NumInt; Num++ ))
+		do
+            source /etc/wireguard/params$Num
             systemctl stop "wg-quick@${SERVER_WG_NIC}"
 		    systemctl disable "wg-quick@${SERVER_WG_NIC}"
         done
@@ -460,15 +473,12 @@ function uninstallWg() {
 			pacman -Rs --noconfirm wireguard-tools qrencode
 		fi
 
-		rm -rf /etc/wireguard
-		rm -f /etc/sysctl.d/wg.conf
-
-		# Reload sysctl
-		sysctl --system
+		
 
 		# Check if WireGuard is running
-        for Num in {0..$NumInt}; do
-            source /etc/params$Num
+        for (( Num=0; Num<$NumInt; Num++ ))
+		do
+            source /etc/wireguard/params$Num
 		    systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
 		    WG_RUNNING=$?
 
@@ -477,7 +487,7 @@ function uninstallWg() {
                 exit 1
             else
                 echo "WireGuard uninstalled successfully."
-                if [$Num==$NumInt]; then
+                if [ $Num -eq $NumInt ]; then
                     exit 0
                 fi
             fi
@@ -486,6 +496,13 @@ function uninstallWg() {
 		echo ""
 		echo "Removal aborted!"
 	fi
+
+	rm -rf /etc/wireguard
+	rm -f /etc/sysctl.d/wg.conf
+
+	# Reload sysctl
+	sysctl --system
+
 }
 
 function addInterface() {
@@ -503,7 +520,7 @@ function addInterface() {
 			declare -a arrayVariables
 
 
-            		# Detect public IPv4 or IPv6 address and pre-fill for the user
+            # Detect public IPv4 or IPv6 address and pre-fill for the user
 			SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
 			if [[ -z ${SERVER_PUB_IP} ]]; then
 				# Detect public IPv6 address
@@ -565,7 +582,7 @@ SERVER_PORT=${arrayVariables[5]}
 SERVER_PRIV_KEY=${arrayVariables[9]}
 SERVER_PUB_KEY=${arrayVariables[8]}
 CLIENT_DNS_1=${arrayVariables[6]}
-CLIENT_DNS_2=${arrayVariables[7]}" >/etc/wireguard/params$Num
+CLIENT_DNS_2=${arrayVariables[7]}" >"/etc/wireguard/params$Num"
 
 			# Add server interface
 			echo "[Interface]
@@ -583,7 +600,7 @@ PostDown = firewall-cmd --remove-port ${arrayVariables[5]}/udp && firewall-cmd -
 PostDown = iptables -D FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -j ACCEPT; iptables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE; ip6tables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE" >>"/etc/wireguard/${arrayVariables[2]}.conf"
 			fi
 
-            echo "### /etc/wireguard/params$Num" >>"/etc/wireguard/${arrayVariables[2]}.conf"
+            echo "###/etc/wireguard/params$Num" >>"/etc/wireguard/${arrayVariables[2]}.conf"
 
 			echo "net.ipv4.ip_forward = 1
 			net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
@@ -655,8 +672,8 @@ function manageMenu() {
 initialCheck
 
 # Check if WireGuard is already installed and load params
-if [[ -e /etc/wireguard/params ]]; then
-	source /etc/wireguard/params
+if [[ -e /etc/wireguard/params0 ]]; then
+	source /etc/wireguard/params0
 	manageMenu
 else
 	installWireGuard
