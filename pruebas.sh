@@ -373,7 +373,7 @@ function revokeClient() {
 
     done
     
-    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
     source $ParamsOfInt
 
 	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
@@ -427,7 +427,7 @@ function showUsers(){
 
     done
     
-    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${SERVER_WG_NIC}.conf" | cut -d "#" -f 4)
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
     source $ParamsOfInt
 
 	lineas=$(sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | wc -l)
