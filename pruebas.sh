@@ -640,8 +640,8 @@ function manageMenu() {
 	echo "   1) Add a new user"
 	echo "   2) Revoke existing user"
 	echo "   3) Show all existing users"
-	echo "   4) Uninstall Wireguard"
-	echo "   5) Add a Interface"
+	echo "   4) Add a Interface"
+	echo "   5) Uninstall Wireguard"
 	echo "   6) Exit"
 	until [[ ${MENU_OPTION} =~ ^[1-6]$ ]]; do
 		read -rp "Select an option [1-6]: " MENU_OPTION
@@ -657,10 +657,10 @@ function manageMenu() {
 		showUsers
 		;;
 	4)
-		uninstallWg
+		addInterface
 		;;
 	5)
-		addInterface
+		uninstallWg
 		;;
 	6)
 		exit 0
