@@ -179,7 +179,7 @@ SERVER_PORT=${SERVER_PORT}
 SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
 SERVER_PUB_KEY=${SERVER_PUB_KEY}
 CLIENT_DNS_1=${CLIENT_DNS_1}
-CLIENT_DNS_2=${CLIENT_DNS_2}" >/etc/wireguard/params
+CLIENT_DNS_2=${CLIENT_DNS_2}" >/etc/wireguard/params0
 
 	# Add server interface
 	echo "[Interface]
@@ -196,6 +196,8 @@ PostDown = firewall-cmd --remove-port ${SERVER_PORT}/udp && firewall-cmd --remov
 		echo "PostUp = iptables -A FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT; iptables -A FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE; ip6tables -A FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; ip6tables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE
 PostDown = iptables -D FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT; iptables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE; ip6tables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 	fi
+
+	echo "###/etc/wireguard/params0" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
 	# Enable routing on the server
 	echo "net.ipv4.ip_forward = 1
@@ -222,6 +224,28 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 }
 
 function newClient() {
+
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' | cut -d ' ' -f 3 | nl -s ') '
+	    echo ""
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
+
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
+
+    done
+    
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
 	ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
 
 	echo ""
@@ -326,9 +350,32 @@ AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SER
 	qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
 
 	echo "It is also available in ${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+
 }
 
 function revokeClient() {
+
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' | cut -d ' ' -f 3 | nl -s ') '
+	    echo ""
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
+
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
+
+    done
+    
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
 	NUMBER_OF_CLIENTS=$(grep -c -E "^### Client" "/etc/wireguard/${SERVER_WG_NIC}.conf")
 	if [[ ${NUMBER_OF_CLIENTS} == '0' ]]; then
 		echo ""
@@ -361,12 +408,34 @@ function revokeClient() {
 }
 
 function showUsers(){
-	lineas=$(sudo grep -E "### Client" /etc/wireguard/wg0.conf | wc -l)
+
+	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
+		echo ""
+    	echo "List of inteface "
+	    echo ""
+		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' | cut -d ' ' -f 3 | nl -s ') '
+	    echo ""
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
+
+	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+
+    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    	echo ""
+	    	echo "The interface of you chosed doesn't exist"
+    		echo ""
+    	fi
+
+    done
+    
+    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
+    source $ParamsOfInt
+
+	lineas=$(sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | wc -l)
 	echo " "
 	echo " "
 	echo "Hi han $lineas usuaris actius al sistema:"
 	echo " "
-	sudo grep -E "### Client" /etc/wireguard/wg0.conf | cut -f3 -d" " | nl -s ') '
+	sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | cut -f3 -d" "
 }
 
 function uninstallWg() {
@@ -374,9 +443,14 @@ function uninstallWg() {
 	read -rp "Do you really want to remove WireGuard? [y/n]: " -e -i n REMOVE
 	if [[ $REMOVE == 'y' ]]; then
 		checkOS
-
-		systemctl stop "wg-quick@${SERVER_WG_NIC}"
-		systemctl disable "wg-quick@${SERVER_WG_NIC}"
+        
+        NumInt=$(sudo ls /etc/wireguard/ | grep -c params)
+		for (( Num=0; Num<$NumInt; Num++ ))
+		do
+            source /etc/wireguard/params$Num
+            systemctl stop "wg-quick@${SERVER_WG_NIC}"
+		    systemctl disable "wg-quick@${SERVER_WG_NIC}"
+        done
 
 		if [[ ${OS} == 'ubuntu' ]]; then
 			apt-get autoremove --purge -y wireguard qrencode
@@ -399,28 +473,164 @@ function uninstallWg() {
 			pacman -Rs --noconfirm wireguard-tools qrencode
 		fi
 
-		rm -rf /etc/wireguard
-		rm -f /etc/sysctl.d/wg.conf
-
-		# Reload sysctl
-		sysctl --system
+		
 
 		# Check if WireGuard is running
-		systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
-		WG_RUNNING=$?
+        for (( Num=0; Num<$NumInt; Num++ ))
+		do
+            source /etc/wireguard/params$Num
+		    systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
+		    WG_RUNNING=$?
 
-		if [[ ${WG_RUNNING} -eq 0 ]]; then
-			echo "WireGuard failed to uninstall properly."
-			exit 1
-		else
-			echo "WireGuard uninstalled successfully."
-			exit 0
-		fi
+            if [[ ${WG_RUNNING} -eq 0 ]]; then
+                echo "WireGuard failed to uninstall properly."
+                exit 1
+            else
+                echo "WireGuard uninstalled successfully."
+                if [ $Num -eq $NumInt ]; then
+                    exit 0
+                fi
+            fi
+        done
 	else
 		echo ""
 		echo "Removal aborted!"
 	fi
+
+	rm -rf /etc/wireguard
+	rm -f /etc/sysctl.d/wg.conf
+
+	# Reload sysctl
+	sysctl --system
+
 }
+
+function addInterface() {
+	echo "W"
+	echo "T"
+	echo ""
+	echo "I "
+	echo "Y."
+	echo ""
+
+    for Num in {0..254}; do
+		DOT_EXISTS=$(ls /etc/wireguard/ | grep -c params${Num})
+		if [[ ${DOT_EXISTS} == '0' ]]; then
+			
+			declare -a arrayVariables
+
+
+            # Detect public IPv4 or IPv6 address and pre-fill for the user
+			SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+			if [[ -z ${SERVER_PUB_IP} ]]; then
+				# Detect public IPv6 address
+				SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+		 	fi
+			read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" arrayVariables[0]
+			
+			# Detect public interface and pre-fill for the user
+			SERVER_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+			
+			until [[ ${arrayVariables[1]} =~ ^[a-zA-Z0-9_]+$ ]]; do
+            	read -rp "Public interface: " -e -i "${SERVER_NIC}" arrayVariables[1]
+            done
+
+         	until [[  ${arrayVariables[2]} =~ ^[a-zA-Z0-9_]+$ && ${#arrayVariables[2]} -lt 16 ]]; do
+            	read -rp "WireGuard interface name: " -e -i wg$Num arrayVariables[2]
+            done
+
+	        until [[ ${arrayVariables[3]} =~ ^([0-9]{1,3}\.){3} ]]; do
+            	read -rp "Server's WireGuard IPv4: " -e -i 10.66.$Num.1 arrayVariables[3]
+        	done
+
+			until [[ ${arrayVariables[4]} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
+				read -rp "Server's WireGuard IPv6: " -e -i fd42:42:42::1 arrayVariables[4]
+			done
+
+		 	# Generate random number within private ports range
+		 	RANDOM_PORT=$(shuf -i49152-65535 -n1)
+			until [[ ${arrayVariables[5]} =~ ^[0-9]+$ ]] && [ "${arrayVariables[5]}" -ge 1 ] && [ "${arrayVariables[5]}" -le 65535 ]; do
+				read -rp "Server's WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" arrayVariables[5]
+			done
+
+			# Adguard DNS by default
+			until [[ ${arrayVariables[6]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+				read -rp "First DNS resolver to use for the clients: " -e -i 94.140.14.14 arrayVariables[6]
+			done
+			until [[ ${arrayVariables[7]} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
+				read -rp "Second DNS resolver to use for the clients (optional): " -e -i 94.140.15.15 arrayVariables[7]
+				if [[ ${arrayVariables[7]} == "" ]]; then
+					arrayVariables[7]="${arrayVariables[6]}"
+				fi
+			done
+			
+			echo ""
+		 	echo "Okay, that was all I needed. We are ready to setup your WireGuard interface now."
+			read -n1 -r -p "Press any key to continue..."
+
+			arrayVariables[9]=$(wg genkey)
+			
+			arrayVariables[8]=$(echo "$(wg genkey)" | wg pubkey)
+
+			# Save WireGuard settings
+			echo "SERVER_PUB_IP=${arrayVariables[0]}
+SERVER_PUB_NIC=${arrayVariables[1]}
+SERVER_WG_NIC=${arrayVariables[2]}
+SERVER_WG_IPV4=${arrayVariables[3]}
+SERVER_WG_IPV6=${arrayVariables[4]}
+SERVER_PORT=${arrayVariables[5]}
+SERVER_PRIV_KEY=${arrayVariables[9]}
+SERVER_PUB_KEY=${arrayVariables[8]}
+CLIENT_DNS_1=${arrayVariables[6]}
+CLIENT_DNS_2=${arrayVariables[7]}" >"/etc/wireguard/params$Num"
+
+			# Add server interface
+			echo "[Interface]
+Address = ${arrayVariables[3]}/24,${arrayVariables[4]}/64
+ListenPort = ${arrayVariables[5]}
+PrivateKey = $(wg genkey)" >"/etc/wireguard/${arrayVariables[2]}.conf"
+
+			if pgrep firewalld; then
+				FIREWALLD_IPV4_ADDRESS=$(echo "${arrayVariables[3]}" | cut -d"." -f1-3)".0"
+				FIREWALLD_IPV6_ADDRESS=$(echo "${arrayVariables[4]}" | sed 's/:[^:]*$/:0/')
+				echo "PostUp = firewall-cmd --add-port ${arrayVariables[5]}/udp && firewall-cmd --add-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --add-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'
+PostDown = firewall-cmd --remove-port ${arrayVariables[5]}/udp && firewall-cmd --remove-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --remove-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'" >>"/etc/wireguard/${arrayVariables[2]}.conf"
+			else
+				echo "PostUp = iptables -A FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -j ACCEPT; iptables -A FORWARD -i ${arrayVariables[2]} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE; ip6tables -A FORWARD -i ${arrayVariables[2]} -j ACCEPT; ip6tables -t nat -A POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE
+PostDown = iptables -D FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -j ACCEPT; iptables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE; ip6tables -D FORWARD -i ${arrayVariables[2]} -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ${arrayVariables[1]} -j MASQUERADE" >>"/etc/wireguard/${arrayVariables[2]}.conf"
+			fi
+
+            echo "###/etc/wireguard/params$Num" >>"/etc/wireguard/${arrayVariables[2]}.conf"
+
+			echo "net.ipv4.ip_forward = 1
+			net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
+			
+			sysctl --system
+
+			systemctl start "wg-quick@${arrayVariables[2]}"
+			systemctl enable "wg-quick@${arrayVariables[2]}"
+		
+			newClient
+			
+			echo "If you want to add more clients, you simply need to run this script another time!"
+			
+			# Check if WireGuard is running
+			systemctl is-active --quiet "wg-quick@${arrayVariables[2]}"
+			WG_RUNNING=$?
+			
+			# WireGuard might not work if we updated the kernel. Tell the user to reboot
+			if [[ ${WG_RUNNING} -ne 0 ]]; then
+				echo -e "\n${RED}WARNING: WireGuard does not seem to be running.${NC}"
+				echo -e "${ORANGE}You can check if WireGuard is running with: systemctl status wg-quick@${arrayVariables[2]}${NC}"
+				echo -e "${ORANGE}If you get something like \"Cannot find device ${arrayVariables[2]}\", please reboot!${NC}"
+			fi
+
+			break
+		fi
+	done
+}
+
+
 
 function manageMenu() {
 	echo "Welcome to WireGuard-install!"
@@ -432,10 +642,11 @@ function manageMenu() {
 	echo "   1) Add a new user"
 	echo "   2) Revoke existing user"
 	echo "   3) Show all existing users"
-	echo "   4) Uninstall Wireguard"
-	echo "   5) Exit"
-	until [[ ${MENU_OPTION} =~ ^[1-5]$ ]]; do
-		read -rp "Select an option [1-5]: " MENU_OPTION
+	echo "   4) Add a Interface"
+	echo "   5) Uninstall Wireguard"
+	echo "   6) Exit"
+	until [[ ${MENU_OPTION} =~ ^[1-6]$ ]]; do
+		read -rp "Select an option [1-6]: " MENU_OPTION
 	done
 	case "${MENU_OPTION}" in
 	1)
@@ -448,9 +659,12 @@ function manageMenu() {
 		showUsers
 		;;
 	4)
-		uninstallWg
+		addInterface
 		;;
 	5)
+		uninstallWg
+		;;
+	6)
 		exit 0
 		;;
 	esac
@@ -460,8 +674,8 @@ function manageMenu() {
 initialCheck
 
 # Check if WireGuard is already installed and load params
-if [[ -e /etc/wireguard/params ]]; then
-	source /etc/wireguard/params
+if [[ -e /etc/wireguard/params0 ]]; then
+	source /etc/wireguard/params0
 	manageMenu
 else
 	installWireGuard
