@@ -231,7 +231,7 @@ function newClient() {
 	    echo ""
 		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
 	    echo ""
-		read -p "What interface do you want? " InterfaceChosed
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -361,7 +361,7 @@ function revokeClient() {
 	    echo ""
 		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
 	    echo ""
-		read -p "What interface do you want? " InterfaceChosed
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -415,7 +415,7 @@ function showUsers(){
 	    echo ""
 		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
 	    echo ""
-		read -p "What interface do you want? " InterfaceChosed
+		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
 
 	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
@@ -436,6 +436,8 @@ function showUsers(){
 	echo "Hi han $lineas usuaris actius al sistema:"
 	echo " "
 	sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | cut -f3 -d" "
+
+	manageMenu
 }
 
 function uninstallWg() {
@@ -630,6 +632,55 @@ PostDown = iptables -D FORWARD -i ${arrayVariables[1]} -o ${arrayVariables[2]} -
 	done
 }
 
+function revokeInterface() {
+	
+	NUMBER_OF_INTERFACE=$(sudo ls /etc/wireguard/ | grep -c .conf | cut -f3 -d" ")
+	if [[ ${NUMBER_OF_INTERFACE} == '0' ]]; then
+		echo ""
+		echo "You have no existing interface!"
+		exit 1
+	fi
+
+	echo ""
+	echo "Select the existing Interface you want to revoke"
+	sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' | cut -d ' ' -f 3 | nl -s ') '
+	until [[ ${INTERFACE_NUMBER} -ge 1 && ${INTERFACE_NUMBER} -le ${NUMBER_OF_INTERFACE} ]]; do
+		if [[ ${INTERFACE_NUMBER} == '1' ]]; then
+			read -rp "Select one interface [1]: " INTERFACE_NUMBER
+		else
+			read -rp "Select one interface [1-${NUMBER_OF_INTERFACE}]: " INTERFACE_NUMBER
+		fi
+	done
+
+	# match the selected number to a INTERFACE name
+	INTERFACE_NAME=$(sudo ls /etc/wireguard/ | grep .conf  | cut -d ' ' -f 3 | sed -n "${INTERFACE_NUMBER}"p)
+	INTERFACE_NAME_SIMPLIFICATED=$(sudo ls /etc/wireguard/ | grep .conf  | cut -d ' ' -f 3 | sed -n "${INTERFACE_NUMBER}"p | awk 'BEGIN{FS=".";OFS="f"} {print $1}' )
+
+	ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${INTERFACE_NAME}" | cut -d "#" -f 4)
+
+	systemctl stop "wg-quick@${INTERFACE_NAME_SIMPLIFICATED}"
+    systemctl disable "wg-quick@${INTERFACE_NAME_SIMPLIFICATED}"
+
+	# remove [Peer] block matching $INTERFACE_NAME
+	rm -f $ParamsOfInt
+	rm -f /etc/wireguard/${INTERFACE_NAME}
+
+	# remove generated INTERFACE file
+	rm -f ${INTERFACE_NAME_SIMPLIFICATED}-client-*.conf
+
+	# restart wireguard to apply changes
+	#wg syncconf "${SERVER_WG_NIC}" <(wg-quick strip "${SERVER_WG_NIC}")
+}
+
+function showInterfaces(){
+	echo ""
+    echo "List of intefaces: "
+	echo ""
+	sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
+	
+	manageMenu
+}
+
 function manageMenu() {
 	echo "Welcome to WireGuard-install!"
 	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
@@ -641,10 +692,12 @@ function manageMenu() {
 	echo "   2) Revoke existing user"
 	echo "   3) Show all existing users"
 	echo "   4) Add a Interface"
-	echo "   5) Uninstall Wireguard"
-	echo "   6) Exit"
-	until [[ ${MENU_OPTION} =~ ^[1-6]$ ]]; do
-		read -rp "Select an option [1-6]: " MENU_OPTION
+	echo "   5) Revoke a Interface"
+	echo "   6) Show all Interfaces"
+	echo "   7) Uninstall Wireguard"
+	echo "   8) Exit"
+	until [[ ${MENU_OPTION} =~ ^[1-8]$ ]]; do
+		read -rp "Select an option [1-8]: " MENU_OPTION
 	done
 	case "${MENU_OPTION}" in
 	1)
@@ -660,9 +713,15 @@ function manageMenu() {
 		addInterface
 		;;
 	5)
-		uninstallWg
+		revokeInterface
 		;;
 	6)
+		showInterfaces
+		;;
+	7)
+		uninstallWg
+		;;
+	8)
 		exit 0
 		;;
 	esac
