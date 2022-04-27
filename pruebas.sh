@@ -67,7 +67,7 @@ function initialCheck() {
 
 function installQuestions() {
 	echo "Welcome to the WireGuard installer!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
+	echo "The git repository is available at: https://github.com/yaakob169/BlackMountain"
 	echo ""
 	echo "I need to ask you a few questions before starting the setup."
 	echo "You can leave the default options and just press enter if you are ok with them."
@@ -411,24 +411,23 @@ function showUsers(){
 
 	until [[ ${INTERFACE_EXISTS} == '1' ]]; do
 		echo ""
-    	echo "List of inteface "
-	    echo ""
+    		echo "List of inteface "
+	    	echo ""
 		sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
-	    echo ""
+	    	echo ""
 		read -p "What interface do you want? " -e -i ${SERVER_WG_NIC} InterfaceChosed
 
-	    INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
+	    	INTERFACE_EXISTS=$(sudo ls /etc/wireguard/ | grep -c ${InterfaceChosed}.conf | cut -f3 -d" ")
 
-    	if [[ ${INTERFACE_EXISTS} == '0' ]]; then
-	    	echo ""
-	    	echo "The interface of you chosed doesn't exist"
-    		echo ""
-    	fi
-
-    done
+    		if [[ ${INTERFACE_EXISTS} == '0' ]]; then
+	    		echo ""
+	    		echo "The interface of you chosed doesn't exist"
+    			echo ""
+    		fi
+	done
     
-    ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
-    source $ParamsOfInt
+    	ParamsOfInt=$(sudo grep -E "###/etc/" "/etc/wireguard/${InterfaceChosed}.conf" | cut -d "#" -f 4)
+    	source $ParamsOfInt
 
 	lineas=$(sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | wc -l)
 	echo " "
@@ -436,8 +435,6 @@ function showUsers(){
 	echo "Hi han $lineas usuaris actius al sistema:"
 	echo " "
 	sudo grep -E "### Client" /etc/wireguard/${SERVER_WG_NIC}.conf | cut -f3 -d" "
-
-	manageMenu
 }
 
 function uninstallWg() {
@@ -508,11 +505,8 @@ function uninstallWg() {
 }
 
 function addInterface() {
-	echo "W"
-	echo "T"
-	echo ""
-	echo "I "
-	echo "Y."
+	echo "I need to ask you a few questions before starting the creation of the new interface."
+	echo "You can leave the default options and just press enter with the default options."
 	echo ""
 
     for Num in {0..254}; do
@@ -674,11 +668,10 @@ function revokeInterface() {
 
 function showInterfaces(){
 	echo ""
-    echo "List of intefaces: "
+    	echo "List of intefaces: "
 	echo ""
 	sudo ls /etc/wireguard/ | grep .conf | cut -f3 | awk 'BEGIN{FS=".";OFS="f"} {print $1}' 
 	
-	manageMenu
 }
 
 function manageMenu() {
