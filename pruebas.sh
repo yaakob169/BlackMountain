@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Secure WireGuard server installer
-# https://github.com/angristan/wireguard-install
+# https://github.com/yaakob169/BlackMountain
 
 RED='\033[0;31m'
 ORANGE='\033[0;33m'
@@ -676,7 +676,7 @@ function showInterfaces(){
 
 function manageMenu() {
 	echo "Welcome to WireGuard-install!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
+	echo "The git repository is available at: https://github.com/yaakob169/BlackMountain"
 	echo ""
 	echo "It looks like WireGuard is already installed."
 	echo ""
