@@ -1,5 +1,15 @@
 ![visitors](https://visitor-badge.glitch.me/badge?page_id=yaakob169.BlackMountain)
 # BlackMountain
+## Requirements
+
+Supported distributions:
+
+- Ubuntu >= 16.04
+- Debian >= 10
+- Fedora
+- CentOS
+- Arch Linux
+- Oracle Linux
 
 ## Usage
 
