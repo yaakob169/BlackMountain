@@ -498,7 +498,7 @@ function uninstallWg() {
 
 	rm -rf /etc/wireguard
 	rm -f /etc/sysctl.d/wg.conf
-
+	rm -f *-client-*.conf
 	# Reload sysctl
 	sysctl --system
 
@@ -659,7 +659,7 @@ function revokeInterface() {
 	rm -f $ParamsOfInt
 	rm -f /etc/wireguard/${INTERFACE_NAME}
 
-	# remove generated INTERFACE file
+	# remove Clients
 	rm -f ${INTERFACE_NAME_SIMPLIFICATED}-client-*.conf
 
 	# restart wireguard to apply changes
