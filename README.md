@@ -39,5 +39,5 @@ VPN Wireguard scripted with:
 ## Contact
 Contact email: jonas.baeza.7e3@itb.cat / yaakob.chouah.7e4@itb.cat
 
-If uw ant to use our VPN service contact us.
-If u have any question or doubt about the service/script contact us
+-If you want to use our VPN service contact us.
+-If you have any question or doubt about the service/script contact us.
